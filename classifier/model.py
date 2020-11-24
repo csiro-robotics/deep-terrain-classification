@@ -1,0 +1,96 @@
+# Copyright (c) 2020
+# Commonwealth Scientific and Industrial Research Organisation (CSIRO)
+# ABN 41 687 119 230
+#
+# Author: Ahmadreza Ahmadi
+
+# This file includes the class that includes the deep learning model for supervised terrrian classification
+
+import tensorflow as tf
+from tensorflow import nn
+from utils import lazy_property
+
+# The class does the terrain classification and it includes RNNs and a Fully Connected Layer (FCL)
+class Classification:
+
+    def __init__(self, data, target, length, learning_rate, num_RNN, num_FCN):
+        self.data = data
+        self.target = target
+        self.layer1 = num_FCN
+        length = tf.cast(length, tf.int32)
+        self.length = length  
+        self.learning_rate = learning_rate     
+        self._num_RNN = num_RNN
+        self.prediction
+        self.error
+        self.optimize
+
+    # returns the output prediction of the classifier 
+    @lazy_property
+    def prediction(self):
+        # Recurrent network.
+        output_RNN, _ = nn.dynamic_rnn(
+            nn.rnn_cell.GRUCell(self._num_RNN),
+            self.data,
+            dtype=tf.float32,
+            sequence_length=self.length,
+        )
+
+        batch_size = tf.shape(output_RNN)[0]
+        max_length = int(output_RNN.get_shape()[1])
+        output_size = int(output_RNN.get_shape()[2])
+        
+        output_reshape = tf.reshape(output_RNN, [-1, output_size])     
+        weight_l1, bias_l1 = self._weight_and_bias(self._num_RNN, self.layer1)
+        output_l1 = tf.nn.tanh(tf.matmul(output_reshape, weight_l1) + bias_l1)
+        output_drop_out_l1 = tf.nn.dropout(output_l1, 0.2, seed=47)        
+        output_drop_out_reshape_l1 = tf.reshape(output_drop_out_l1, [batch_size, max_length, self.layer1])
+        
+        last = self._last_relevant(output_drop_out_reshape_l1, self.length)
+
+        weight_class, bias_class = self._weight_and_bias(
+            self.layer1, int(self.target.get_shape()[1]))
+        # Softmax layer.
+        prediction = tf.nn.softmax(tf.matmul(last, weight_class) + bias_class)
+        return prediction
+
+    # returns the classification cost 
+    @lazy_property
+    def cost(self):
+        cross_entropy = -tf.reduce_sum(self.target * tf.log(self.prediction))
+        tf.summary.scalar('cross_entropy', cross_entropy)
+        vars   = tf.trainable_variables() 
+        lossL2 = tf.add_n([ tf.nn.l2_loss(v) for v in vars
+                    if 'bias' not in v.name ]) * 0.005
+        return (cross_entropy+lossL2)    
+
+    # performs adam optimizer
+    @lazy_property
+    def optimize(self):        
+        optimizer = tf.train.AdamOptimizer(self.learning_rate)
+        return optimizer.minimize(self.cost)
+
+    # returns the classification error 
+    @lazy_property
+    def error(self):
+        mistakes = tf.not_equal(
+            tf.argmax(self.target, 1), tf.argmax(self.prediction, 1))
+        tf.summary.scalar('error', tf.reduce_mean(tf.cast(mistakes, tf.float32)))
+        return tf.reduce_mean(tf.cast(mistakes, tf.float32))    
+
+    @staticmethod
+    def _weight_and_bias(in_size, out_size):
+        weight = tf.truncated_normal([in_size, out_size], stddev=0.01)
+        bias = tf.constant(0.1, shape=[out_size])
+        return tf.Variable(weight), tf.Variable(bias)
+
+    # returns the values of the last step (step T) of RNNs 
+    @staticmethod
+    def _last_relevant(output, length):
+        batch_size = tf.shape(output)[0]
+        max_length = int(output.get_shape()[1])
+        output_size = int(output.get_shape()[2])
+        index = tf.range(0, batch_size) * max_length + (length - 1)
+        flat = tf.reshape(output, [-1, output_size])
+        relevant = tf.gather(flat, index)
+        return relevant

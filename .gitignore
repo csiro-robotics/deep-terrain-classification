@@ -1,0 +1,8 @@
+/classifier/data
+/classifier/save
+/classifier_attention/data
+/classifier_attention/save
+/semi_supervised/data
+/semi_supervised/save
+*.pyc
+.vscode/
