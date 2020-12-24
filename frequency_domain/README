@@ -1,0 +1,11 @@
+This is a python source code for frequency domain classifiers of PUT dataset implemented based on the information provided in the paper titled: "What am I touching? Learning to classify terrain via haptic sensing"
+The implementation is done in Jupyter-notebook.
+In this implementation, 10-fold cross validation is used to evaluate two models: SVMs and Fully Connected Neurons (FCNs). 
+Requirements: 
+    • Python >= 3.X with Numpy, Scipy, Sklearn, Functools, Pandas, and Matplotlib 
+    • Tensorflow >= 1.12.0
+    • Keras >= 2.2.4
+In order to run the codes:
+    1. Create the directory data inside the frequency_domain folder : mkdir data
+    2. Go to the data folder and download the PUT data : the webpage address can be found in the paper: “What am I touching? Learning to classify terrain via haptic sensing” 
+    3. Return to the  frequency_domain folder and run SVM_PUT_Dataset.ipynb for the SVM model and FCN_PUT_Dataset.ipynb for the fully connected neurons inside  Jupyter-notebook. 
